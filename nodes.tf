@@ -28,7 +28,7 @@ resource "hcloud_server" "node" {
   }
 }
 
-output "node0_ipv4_address" {
+output "node_ipv4_address" {
   value = hcloud_server.node0.ipv4_address
 }
 
