@@ -1,6 +1,6 @@
 resource "hcloud_server" "control_plane" {
   name        = "control-plane"
-  server_type = "cx21"
+  server_type = "cx31"
   image       = "debian-12"
   location    = "nbg1"
   ssh_keys    = ["max"] 
