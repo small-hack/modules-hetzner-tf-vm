@@ -1,0 +1,52 @@
+#cloud-config
+hostname: controlplane
+disable_root: false
+network:
+  config: disabled
+users:
+  - name: friend
+    groups: users, admin, docker, sudo, kvm
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: true
+package_update: false
+package_upgrade: false
+packages: 
+  - openresolv
+  - ssh-import-id
+  - sudo
+  - curl
+  - tmux
+  - netplan.io
+  - apt-transport-https
+  - ca-certificates
+  - software-properties-common
+  - netplan.io
+  - git-extras
+  - rsyslog
+  - fail2ban
+  - neovim
+  - gpg
+  - open-iscsi
+  - nfs-common
+runcmd:
+  #####################
+  # Import SSH keys
+  - sudo -u friend ssh-import-id-gh cloudymax  
+  - sudo -u friend ssh-import-id-gh jessebot
+  ######################
+  # Install YQ
+  - wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq &&\
+  - chmod +x /usr/bin/yq
+  ######################
+  # Install Docker
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  # Debian
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - sudo apt-get update 
+  - sudo apt-get install -y docker-ce
+  ########################
+  # Install Docker Compose
+  - sudo -u friend -i mkdir -p /home/friend/.docker/cli-plugins/
+  - sudo -u friend -i curl -SL https://github.com/docker/compose/releases/download/v2.17.3/docker-compose-linux-x86_64 -o  /home/friend/.docker/cli-plugins/docker-compose
+  - sudo chmod +x /home/friend/.docker/cli-plugins/docker-compose
