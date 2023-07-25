@@ -1,0 +1,63 @@
+name: Apply on merge
+on:
+  pull_request:
+    types:
+      - closed
+jobs:
+  terraform-apply:
+    runs-on: ubuntu-latest 
+    steps:
+    - uses: actions/checkout@v3
+    - name: Terraform fmt
+      id: fmt
+      run: |
+        docker run --platform linux/amd64 \
+          -v $(pwd):/terraform -w /terraform \
+          hashicorp/terraform fmt
+      continue-on-error: false
+      shell: bash
+
+    - name: Terraform Init
+      id: init
+      run: |
+        docker run --platform linux/amd64 \
+          -e "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+          -e "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+          -v $(pwd):/terraform -w /terraform hashicorp/terraform init -upgrade
+      continue-on-error: false
+      shell: bash
+      
+    - name: Terraform Validate
+      id: validate
+      run: |
+        docker run --platform linux/amd64 \
+          -v $(pwd):/terraform -w /terraform \
+          hashicorp/terraform validate -no-color
+      continue-on-error: false
+      shell: bash
+
+    - name: Terraform Plan
+      id: plan
+      run: |
+        docker run --platform linux/amd64 \
+          -e "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+          -e "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+          -v $(pwd):/terraform -w /terraform \
+          hashicorp/terraform plan \
+          -var="hcloud_token=${{ secrets.HCLOUD_TOKEN }}" \
+          -no-color -lock=false -out terraform.plan
+      continue-on-error: true
+      shell: bash
+      
+    - name: Terraform Apply
+      id: apply
+      run: |
+        docker run --platform linux/amd64 \
+          -e "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+          -e "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+          -v $(pwd):/terraform -w /terraform \
+          hashicorp/terraform apply \
+          -var="hcloud_token=${{ secrets.HCLOUD_TOKEN }}" \
+          -no-color -auto-approve -input=false
+      continue-on-error: false
+      shell: bash
