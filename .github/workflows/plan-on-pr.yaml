@@ -1,0 +1,74 @@
+name: Terraform Plan on PR
+on: 
+  pull_request:
+  workflow_dispatch:
+permissions:
+  pull-requests: write
+
+jobs:
+  terraform-pr:
+    runs-on: ubuntu-latest 
+    steps:
+    - uses: actions/checkout@v3
+    - name: Terraform fmt
+      id: fmt
+      run: |
+        docker run --platform linux/amd64 \
+          -v $(pwd):/terraform -w /terraform \
+          hashicorp/terraform fmt
+      continue-on-error: false
+      shell: bash
+
+    - name: Terraform Init
+      id: init
+      run: |
+        docker run --platform linux/amd64 \
+          -e "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+          -e "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+          -v $(pwd):/terraform -w /terraform hashicorp/terraform init -upgrade
+      continue-on-error: false
+      shell: bash
+      
+    - name: Terraform Validate
+      id: validate
+      run: |
+        docker run --platform linux/amd64 \
+          -v $(pwd):/terraform -w /terraform \
+          hashicorp/terraform validate -no-color
+      continue-on-error: false
+      shell: bash
+    
+    - name: Terraform Plan
+      id: plan
+      run: |
+        docker run --platform linux/amd64 \
+          -e "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+          -e "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+          -v $(pwd):/terraform -w /terraform \
+          hashicorp/terraform plan \
+          -var="hcloud_token=${{ secrets.HCLOUD_TOKEN }}" \
+          -no-color -lock=false -out terraform.plan
+      continue-on-error: true
+
+    # generate plain output
+    - run: |
+        docker run --platform linux/amd64 \
+          -e "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+          -e "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+          -v $(pwd):/terraform -w /terraform \
+          hashicorp/terraform show -no-color terraform.plan > terraform.text
+
+    # generate json output
+    - run: |
+        docker run --platform linux/amd64 \
+          -e "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+          -e "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+          -v $(pwd):/terraform -w /terraform \
+          hashicorp/terraform show -json terraform.plan > terraform.json
+
+    - uses: ahmadnassri/action-terraform-report@v3
+      with:
+        # tell the action the plan outputs
+        terraform-text: ${{ github.workspace }}/terraform.text
+        terraform-json: ${{ github.workspace }}/terraform.json
+        remove-stale-reports: true
