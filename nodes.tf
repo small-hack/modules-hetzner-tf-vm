@@ -1,7 +1,7 @@
 resource "hcloud_server" "control_plane" {
   name        = "control-plane"
   server_type = "cx31"
-  image       = "ubuntu-22"
+  image       = "ubuntu-22.04"
   location    = "nbg1"
   ssh_keys    = ["max"] 
   user_data = "${file("user-data.yaml")}"
