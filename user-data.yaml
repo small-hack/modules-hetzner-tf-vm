@@ -79,3 +79,6 @@ runcmd:
   - systemctl restart node-exporter
   - sudo systemctl enable fail2ban
   - sudo systemctl start fail2ban
+  ########################
+  # Pull onboardme
+  - docker pull jessebot/onboardme:debian12-devops
