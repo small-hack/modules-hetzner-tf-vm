@@ -1,3 +1,4 @@
+/*
 resource "hcloud_server" "control_plane" {
   name        = "control-plane"
   server_type = "cx31"
@@ -14,3 +15,4 @@ resource "hcloud_server" "control_plane" {
 output "control_plane_ipv4_address" {
   value = hcloud_server.control_plane.ipv4_address
 }
+*/
