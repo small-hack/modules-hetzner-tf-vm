@@ -9,9 +9,10 @@ users:
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
     lock_passwd: true
-package_update: false
-package_upgrade: false
+package_update: true
+package_upgrade: true
 packages: 
+  - wireguard
   - openresolv
   - ssh-import-id
   - sudo
@@ -21,14 +22,15 @@ packages:
   - apt-transport-https
   - ca-certificates
   - software-properties-common
-  - netplan.io
+  - htop
+  - iotop
   - git-extras
   - rsyslog
   - fail2ban
-  - neovim
   - gpg
   - open-iscsi
   - nfs-common
+  - ncdu
 runcmd:
   #####################
   # Import SSH keys
@@ -41,8 +43,7 @@ runcmd:
   ######################
   # Install Docker
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-  # Debian
-  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   - sudo apt-get update 
   - sudo apt-get install -y docker-ce
   ########################
@@ -50,3 +51,24 @@ runcmd:
   - sudo -u friend -i mkdir -p /home/friend/.docker/cli-plugins/
   - sudo -u friend -i curl -SL https://github.com/docker/compose/releases/download/v2.17.3/docker-compose-linux-x86_64 -o  /home/friend/.docker/cli-plugins/docker-compose
   - sudo chmod +x /home/friend/.docker/cli-plugins/docker-compose
+  ########################
+  # Brew and Python3
+  - wget -O setup.sh https://raw.githubusercontent.com/jessebot/onboardme/main/setup.sh
+  - /bin/sh -c '. ./setup.sh'
+  - /bin/sh -c 'brew install bitwarden-cli b2-tools k9s'
+  - /bin/sh -c 'pip3.11 install smol-k8s-lab'
+  #######################
+  # Prometheus
+  - wget -O /opt/node_exporter-1.6.1.linux-amd64.tar.gz https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz
+  - tar -xvf /opt/node_exporter-1.6.1.linux-amd64.tar.gz -C /opt
+  - rm /opt/node_exporter-1.6.1.linux-amd64.tar.gz
+  - ln -s node_exporter-1.6.1.linux-amd64 /opt/node_exporter
+  - wget https://raw.githubusercontent.com/small-hack/smol-metal/main/node-exporter.service
+  - sudo mv node-exporter.service /etc/systemd/system/node-exporter.service
+  ########################
+  # Start system services
+  - systemctl daemon-reload
+  - systemctl enable node-exporter
+  - systemctl restart node-exporter
+  - sudo systemctl enable fail2ban
+  - sudo systemctl start fail2ban
