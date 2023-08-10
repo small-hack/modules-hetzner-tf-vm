@@ -1,5 +1,5 @@
 resource "hcloud_server" "control_plane" {
-  name        = "control-plane"
+  name        = "vpn"
   server_type = "cx31"
   image       = "ubuntu-22.04"
   location    = "nbg1"
