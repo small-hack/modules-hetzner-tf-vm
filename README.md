@@ -9,13 +9,13 @@ This repo manages VleermuisTech infrstructure on Hetzner Cloud.
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_hcloud"></a> [hcloud](#requirement\_hcloud) | 1.42.0 |
+| <a name="requirement_hcloud"></a> [hcloud](#requirement\_hcloud) | 1.42.1 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | 1.42.0 |
+| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | 1.42.1 |
 
 ## Modules
 
@@ -25,7 +25,7 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [hcloud_server.control_plane](https://registry.terraform.io/providers/hetznercloud/hcloud/1.42.0/docs/resources/server) | resource |
+| [hcloud_server.control_plane](https://registry.terraform.io/providers/hetznercloud/hcloud/1.42.1/docs/resources/server) | resource |
 
 ## Inputs
 
