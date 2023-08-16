@@ -26,6 +26,7 @@ No modules.
 | Name | Type |
 |------|------|
 | [hcloud_server.control_plane](https://registry.terraform.io/providers/hetznercloud/hcloud/1.42.0/docs/resources/server) | resource |
+| [hcloud_server.monitoring](https://registry.terraform.io/providers/hetznercloud/hcloud/1.42.0/docs/resources/server) | resource |
 
 ## Inputs
 
@@ -38,4 +39,5 @@ No modules.
 | Name | Description |
 |------|-------------|
 | <a name="output_control_plane_ipv4_address"></a> [control\_plane\_ipv4\_address](#output\_control\_plane\_ipv4\_address) | n/a |
+| <a name="output_monitoring_ipv4_address"></a> [monitoring\_ipv4\_address](#output\_monitoring\_ipv4\_address) | n/a |
 <!-- END_TF_DOCS -->

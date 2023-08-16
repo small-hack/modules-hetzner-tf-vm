@@ -28,6 +28,6 @@ resource "hcloud_server" "monitoring" {
   }
 }
 
-output "control_plane_ipv4_address" {
+output "monitoring_ipv4_address" {
   value = hcloud_server.monitoring.ipv4_address
 }

@@ -123,7 +123,7 @@ write_files:
       scrape_configs:
         - job_name: prometheus-9100
           static_configs:
-            - targets: ['127.0.0.1:9100']
+            - targets: ['VM_IP_GOES_HERE:9100']
         - job_name: prometheus-9090
           static_configs:
             - targets: ['127.0.0.1:9090']
@@ -331,6 +331,7 @@ runcmd:
   - ln -s node_exporter-1.6.1.linux-amd64 /opt/node_exporter
   - wget https://raw.githubusercontent.com/small-hack/smol-metal/main/node-exporter.service
   - sudo mv node-exporter.service /etc/systemd/system/node-exporter.service
+  - sed -i "s/VM_IP_GOES_HERE/$(curl icanhazip.com)/g" /prometheus/prometheus.yml
   ########################
   # Start system services
   - systemctl daemon-reload
