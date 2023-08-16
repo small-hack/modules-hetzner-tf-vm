@@ -26,6 +26,7 @@ No modules.
 | Name | Type |
 |------|------|
 | [hcloud_server.control_plane](https://registry.terraform.io/providers/hetznercloud/hcloud/1.42.0/docs/resources/server) | resource |
+| [hcloud_server.monitoring](https://registry.terraform.io/providers/hetznercloud/hcloud/1.42.0/docs/resources/server) | resource |
 
 ## Inputs
 
