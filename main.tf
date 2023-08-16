@@ -16,7 +16,7 @@ output "control_plane_ipv4_address" {
 }
 
 resource "hcloud_server" "monitoring" {
-  name        = "vpn"
+  name        = "monitoring"
   server_type = "cx31"
   image       = "ubuntu-22.04"
   location    = "nbg1"
