@@ -15,7 +15,7 @@ output "control_plane_ipv4_address" {
   value = hcloud_server.control_plane.ipv4_address
 }
 
-/*
+
 resource "hcloud_server" "monitoring" {
   name        = "monitoring"
   server_type = "cpx21"
@@ -32,4 +32,4 @@ resource "hcloud_server" "monitoring" {
 output "monitoring_ipv4_address" {
   value = hcloud_server.monitoring.ipv4_address
 }
-*/
+
