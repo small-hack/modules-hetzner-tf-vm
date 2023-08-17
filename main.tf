@@ -29,6 +29,7 @@ resource "hcloud_server" "monitoring" {
   }
 }
 
+
 output "monitoring_ipv4_address" {
   value = hcloud_server.monitoring.ipv4_address
 }
