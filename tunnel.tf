@@ -6,7 +6,7 @@ resource "random_id" "this" {
 // Creates a new cloudflare-managed tunnel for the VM.
 resource "cloudflare_tunnel" "this" {
   account_id = var.cloudflare_account_id
-  name       = "tunnel"
+  name       = var.tunnel_name
   secret     = random_id.this.b64_std
   config_src = "cloudflare"
 }
