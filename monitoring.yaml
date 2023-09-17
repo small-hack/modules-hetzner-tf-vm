@@ -1,0 +1,347 @@
+#cloud-config
+hostname: monitoring
+fqdn: monitoring
+disable_root: false
+network:
+  config: disabled
+groups:
+  - docker
+users:
+  - name: friend
+    groups: users, admin, docker, sudo
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    passwd: $6$rounds=4096$saltsaltlettuce$Lp/FV.2oOgew7GbM6Nr8KMGMBn7iFM0x9ZwLqtx9Y4QJmKvfcnS.2zx4MKmymCPQGpHS7gqYOiqWjvdCIV2uN.
+bootcmd:
+  - mkdir -p /grafana/data
+  - mkdir -p /grafana/log
+  - mkdir -p /prometheus
+  - mkdir -p /etc/grafana/provisioning/datasources
+  - mkdir -p /etc/grafana/provisioning/dashboards
+write_files:
+  - path: /home/friend/restic-restore.sh
+    content: |
+      #!/bin/bash
+      export AWS_ACCESS_KEY_ID=""
+      export AWS_SECRET_ACCESS_KEY=""
+      export RESTIC_PASSWORD=""
+      export RESTIC_REPOSITORY=""
+      restic restore latest -t ./restored-data
+      rm -rf /grafana/*
+      rm -rf /prometheus/*
+      mv -f ./restored-data/grafana/* /grafana/
+      mv -f ./restored-data/prometheus/* /prometheus/
+  - path: /home/friend/.restic.env
+    content: |
+      export AWS_ACCESS_KEY_ID=""
+      export AWS_SECRET_ACCESS_KEY=""
+      export RESTIC_PASSWORD=""
+      export RESTIC_REPOSITORY=""
+  - path: /etc/cron.d/per_hour
+    owner: root:root
+    content: |
+      0 * * * * root . /home/friend/.restic.env ; date \+\%b\ \%d\ \%T >> /var/log/restic.err ; date \+\%b\ \%d\ \%T >> /var/log/restic.log ; /usr/bin/restic backup --files-from=/home/friend/restic.files --tag automated -v=3 2>> /var/log/restic.err >> /var/log/restic.log
+  - path: /home/friend/restic.files
+    content: |
+      /grafana
+      /prometheus
+      /etc/grafana/provisioning/datasources
+      /etc/grafana/provisioning/dashboards
+      /var/log
+      /var/log/journal
+      /tmp/loki
+  - path: /etc/systemd/system/node_exporter.service
+    content: |
+      [Unit]
+      Description=Prometheus Node Exporter
+      Documentation=https://github.com/prometheus/node_exporter
+      After=network-online.target
+
+      [Service]
+      User=root
+      EnvironmentFile=/etc/default/node_exporter
+      Restart=on-failure
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/docker_compose.service
+    content: |
+      [Unit]
+      Description=Docker Compose Application Service
+      Requires=docker.service
+      After=docker.service
+
+      [Service]
+      User=root
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=/
+      ExecStart=/usr/bin/docker compose -f /docker-compose.yaml up -d
+      ExecStop=/usr/bin/docker compose -f /docker-compose down
+      TimeoutStartSec=0
+
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/grafana/provisioning/datasources/datasource.yml
+    content: |
+      apiVersion: 1
+      datasources:
+        - name: DS_PROMETHEUS_111
+          isDefault: false
+          access: proxy
+          type: prometheus
+          orgId: 1
+          url: http://prometheus:9090
+          editable: true
+        - name: Loki
+          type: loki
+          access: proxy
+          url: http://loki:3100
+          jsonData:
+            maxLines: 1000
+          editable: true
+        - name: DS_INFLUX
+          type: influxdb
+          access: proxy
+          url: http://influxdb:8086
+          jsonData:
+            version: Flux
+            tlsSkipVerify: true
+            organization: demo
+            defaultBucket: demo
+          editable: true
+  - path: /prometheus/prometheus.yml
+    content: |
+      global:
+        scrape_interval:     5s
+        evaluation_interval: 5s
+      rule_files:
+        # - "first.rules"
+        # - "second.rules"
+      scrape_configs:
+        - job_name: prometheus-9100
+          static_configs:
+            - targets: ['168.119.163.34:9100']
+            - targets: ['128.140.33.101:9100']
+        - job_name: prometheus-9090
+          static_configs:
+            - targets: ['127.0.0.1:9090']
+          metrics_path: "/metrics"
+  - path: /docker-compose.yaml
+    content: |
+      version: "3.7"
+      name: monitoring
+      services:
+        prometheus:
+          container_name: prometheus
+          image: prom/prometheus
+          user: root
+          ports:
+            - 9090:9090
+          expose:
+            - 9090
+          volumes:
+            - /prometheus:/prometheus
+            - /prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+        grafana:
+          container_name: grafana
+          image: grafana/grafana-oss
+          user: root
+          ports:
+            - 3000:3000
+          expose:
+            - 3000
+          environment:
+            - GF_LOG_MODE=file
+            - GF_LOG_LEVEL=debug
+            - GF_PATHS_LOGS=/var/log/grafana/
+            - GF_SECURITY_ADMIN_USER=friend
+            - GF_SECURITY_ADMIN_PASSWORD=ChangeMe!
+          volumes:
+            - /grafana/data:/var/lib/grafana
+            - /grafana/log:/var/log/grafana
+            - /etc/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+            - /etc/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+        loki:
+          container_name: loki
+          image: grafana/loki:2.6.0
+          ports:
+            - 3100:3100
+          command: -config.file=/etc/loki/local-config.yaml
+          volumes:
+            - /loki-config.yaml:/etc/loki/local-config.yaml
+        promtail:
+          container_name: promtail
+          image: grafana/promtail:2.6.0
+          command: -config.file=/etc/promtail/config.yml
+          volumes:
+            - /promtail-config.yaml:/etc/promtail/config.yml
+            - /var/log/journal:/var/log/journal
+            - /var/log:/var/log
+            - /var/run/docker.sock:/var/run/docker.sock
+            - /var/lib/docker/containers:/var/lib/docker/containers
+        influxdb:
+          image: influxdb:2.6.1
+          container_name: InfluxDB
+          ports:
+            - 8086:8086
+          volumes:
+            - ./influx/data:/var/lib/influxdb2
+            - ./influx/config:/etc/influxdb2
+          environment:
+            - DOCKER_INFLUXDB_INIT_MODE=setup
+            - DOCKER_INFLUXDB_INIT_USERNAME=friend
+            - DOCKER_INFLUXDB_INIT_PASSWORD=ChangeMe!
+            - DOCKER_INFLUXDB_INIT_ORG=demo
+            - DOCKER_INFLUXDB_INIT_BUCKET=demo
+            - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=abc123
+            - INFLUXDB_HTTP_FLUX_ENABLED=true
+            - INFLUXDB_LOG_LEVEL=debug
+          healthcheck:
+            test: curl --fail http://localhost:8086/health
+            interval: 3s
+            timeout: 10s
+            retries: 20
+            start_period: 5s
+  - path: /promtail-config.yaml
+    content: |
+      server:
+        http_listen_port: 9080
+        grpc_listen_port: 0
+
+      positions:
+        filename: /tmp/positions.yaml
+
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+
+      scrape_configs:
+      - job_name: system
+        static_configs:
+        - targets:
+            - localhost
+          labels:
+            job: varlogs
+            __path__: /var/log/*log
+      - job_name: dockerprod
+        docker_sd_configs:
+          - host: "unix:///var/run/docker.sock"
+            refresh_interval: 15s
+            filters:
+              - name: label
+                values: ["com.docker.compose.project=monitoring"]
+        relabel_configs:
+          - source_labels: ['__meta_docker_container_name']
+            regex: '/(.*)'
+            target_label: 'container'
+  - path: /loki-config.yaml
+    content: |
+      auth_enabled: false
+
+      server:
+        http_listen_port: 3100
+        grpc_listen_port: 9096
+
+      common:
+        path_prefix: /tmp/loki
+        storage:
+          filesystem:
+            chunks_directory: /tmp/loki/chunks
+            rules_directory: /tmp/loki/rules
+        replication_factor: 1
+        ring:
+          instance_addr: 127.0.0.1
+          kvstore:
+            store: inmemory
+
+      schema_config:
+        configs:
+          - from: 2020-10-24
+            store: boltdb-shipper
+            object_store: filesystem
+            schema: v11
+            index:
+              prefix: index_
+              period: 24h
+
+      ruler:
+        alertmanager_url: http://localhost:9093
+package_update: true
+package_upgrade: true
+packages:
+  - wireguard
+  - openresolv
+  - ssh-import-id
+  - sudo
+  - curl
+  - tmux
+  - netplan.io
+  - apt-transport-https
+  - ca-certificates
+  - software-properties-common
+  - htop
+  - iotop
+  - git-extras
+  - rsyslog
+  - fail2ban
+  - gpg
+  - open-iscsi
+  - nfs-common
+  - ncdu
+  - restic
+  - jq
+runcmd:
+  #####################
+  # Import SSH keys
+  - sudo -u friend ssh-import-id-gh cloudymax
+  ######################
+  # Install YQ
+  - wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+  - chmod +x /usr/bin/yq
+  ######################
+  # Install Docker
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - sudo apt-get update
+  - sudo apt-get install -y docker-ce
+  ########################
+  # Install Docker Compose
+  - sudo mkdir -p /home/friend/.docker/cli-plugins/
+  - sudo curl -SL https://github.com/docker/compose/releases/download/v2.17.3/docker-compose-linux-x86_64 -o  /home/friend/.docker/cli-plugins/docker-compose
+  - sudo chmod +x /home/friend/.docker/cli-plugins/docker-compose
+  ########################
+  # Brew and Python3
+  - wget https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
+  - chmod +x /install.sh
+  - chmod 777 /install.sh
+  - sudo -u friend NONINTERACTIVE=1 /bin/bash /install.sh
+  - sudo -u friend /home/linuxbrew/.linuxbrew/bin/brew shellenv >> /home/friend/.profile
+  - sudo -u friend /home/linuxbrew/.linuxbrew/opt/python@3.11/libexec/bin >> /home/friend/.profile
+  - sudo -u friend /home/linuxbrew/.linuxbrew/bin/brew install python@3.11 bitwarden-cli b2-tools k9s neovim
+  - sudo -u friend /home/linuxbrew/.linuxbrew/bin/pip3.11 install smol-k8s-lab onboardme
+  - sudo mkdir -p /home/friend/.config/smol-ka8s-lab
+  - sudo chown -R friend:friend /home/linuxbrew
+  - sudo chown -R friend:friend /home/friend
+  #######################
+  # Prometheus
+  - sudo wget -O /opt/node_exporter-1.6.1.linux-amd64.tar.gz https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz
+  - sudo tar -xvf /opt/node_exporter-1.6.1.linux-amd64.tar.gz -C /opt
+  - rm /opt/node_exporter-1.6.1.linux-amd64.tar.gz
+  - ln -s node_exporter-1.6.1.linux-amd64 /opt/node_exporter
+  - wget https://raw.githubusercontent.com/small-hack/smol-metal/main/node-exporter.service
+  - sudo mv node-exporter.service /etc/systemd/system/node-exporter.service
+  - sed -i "s/VM_IP_GOES_HERE/$(curl icanhazip.com)/g" /prometheus/prometheus.yml
+  ########################
+  # Start system services
+  - systemctl daemon-reload
+  - systemctl enable node-exporter
+  - systemctl restart node-exporter
+  - sudo systemctl enable fail2ban
+  - sudo systemctl start fail2ban
+  #######################
+  # regex config files
+  - sudo docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
+  - sudo systemctl enable docker_compose
+  - sudo systemctl start docker_compose
